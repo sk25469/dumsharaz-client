@@ -29,6 +29,7 @@ class _CanvasPageState extends State<CanvasPage> {
 
   // response_type can be "connect-new" or "connect"
   String response_type = "", room_type = "";
+  List<ClientInfo> group1 = [], group2 = [];
 
   // send the name and room details to the server
   void sendNameAndRoomDetails() {
@@ -174,6 +175,26 @@ class _CanvasPageState extends State<CanvasPage> {
             )
           : Column(
               children: [
+                Container(
+                  child: StreamBuilder<ServerResponse>(
+                    stream: readableStream,
+                    builder: (context, snapshot) {
+                      if (snapshot.hasError) {
+                        return Text(snapshot.error.toString());
+                      }
+                      if (snapshot.hasData) {
+                        final response = snapshot.data;
+                        if (response!.response_type == "total") {
+                          int len = response.room_info.grp1.length +
+                              response.room_info.grp2.length;
+                          joined = len.toString();
+                          return Text("New client joined: ${response.client_info.name}");
+                        }
+                      }
+                      return Text("Clients in room $joined");
+                    },
+                  ),
+                ),
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisAlignment: MainAxisAlignment.spaceEvenly,
@@ -181,36 +202,54 @@ class _CanvasPageState extends State<CanvasPage> {
                     SizedBox(
                       width: width * 0.2,
                       height: height * 0.8,
-                      child: Column(
-                        children: [
-                          const Text(
-                            "Connected User",
-                            style: TextStyle(fontSize: 30),
-                          ),
-                          StreamBuilder<ServerResponse>(
-                            stream: readableStream,
-                            builder: (context, snapshot) {
-                              if (snapshot.hasData) {
-                                print(snapshot.data.toString());
-                                final responseData = snapshot.data;
-                                if (responseData!.response_type == "total") {
-                                  int total = responseData.room_info.grp1.length +
-                                      responseData.room_info.grp2.length;
-                                  joined = total.toString();
-                                  return Text(
-                                      "New user joined: ${responseData.client_info.client_id}\nTotal joined: $joined");
-                                } else if (responseData.response_type == "dis") {
-                                  int total = responseData.room_info.grp1.length +
-                                      responseData.room_info.grp2.length;
-                                  joined = total.toString();
-                                  return Text(
-                                      "User disconnected: ${responseData.client_info.client_id}\nTotal joined: $joined");
-                                }
-                              }
-                              return Text("Total joined: $joined");
-                            },
-                          ),
-                        ],
+                      child: StreamBuilder<ServerResponse>(
+                        stream: readableStream,
+                        builder: (context, snapshot) {
+                          if (snapshot.hasError) {
+                            return Text(snapshot.error.toString());
+                          }
+                          if (snapshot.hasData) {
+                            final response = snapshot.data;
+                            group1 = response!.room_info.grp1;
+                            group2 = response.room_info.grp2;
+                          }
+                          return Column(
+                            children: [
+                              const Text(
+                                "Group 1",
+                                style: TextStyle(fontSize: 30),
+                              ),
+                              Expanded(
+                                child: ListView.builder(
+                                  itemBuilder: (context, index) {
+                                    return ListTile(
+                                      title: Text(
+                                        group1[index].name.toString(),
+                                      ),
+                                    );
+                                  },
+                                  itemCount: group1.length,
+                                ),
+                              ),
+                              const Text(
+                                "Group 2",
+                                style: TextStyle(fontSize: 30),
+                              ),
+                              Expanded(
+                                child: ListView.builder(
+                                  itemBuilder: (context, index) {
+                                    return ListTile(
+                                      title: Text(
+                                        group2[index].name.toString(),
+                                      ),
+                                    );
+                                  },
+                                  itemCount: group2.length,
+                                ),
+                              )
+                            ],
+                          );
+                        },
                       ),
                     ),
                     Container(
@@ -253,4 +292,16 @@ class _CanvasPageState extends State<CanvasPage> {
             ),
     );
   }
+}
+
+Widget getValueFromStream(Stream<ServerResponse>? stream, Widget child) {
+  return StreamBuilder<ServerResponse>(
+    stream: stream,
+    builder: (context, snapshot) {
+      if (snapshot.hasError) {
+        return Text(snapshot.error.toString());
+      }
+      return child;
+    },
+  );
 }
